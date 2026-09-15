@@ -144,7 +144,7 @@ cli-login/
 ```env
 APP_NAME=cli-login
 DB_HOST=postgres
-DB_PORT=5432
+DB_PORT=5430
 DB_USER=cli_user
 DB_PASSWORD=cli_secret
 DB_NAME=cli_login_db
@@ -696,6 +696,7 @@ services:
     image: postgres:16-alpine
     container_name: cli-postgres
     restart: unless-stopped
+    command: ["postgres", "-p", "5430"]
     environment:
       POSTGRES_USER: ${DB_USER:-cli_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-cli_secret}
@@ -703,9 +704,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5430:5430"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cli_user} -d ${DB_NAME:-cli_login_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cli_user} -d ${DB_NAME:-cli_login_db} -p 5430"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -722,7 +723,7 @@ services:
       - .env
     environment:
       DB_HOST: postgres
-      DB_PORT: 5432
+      DB_PORT: 5430
       DB_USER: ${DB_USER:-cli_user}
       DB_PASSWORD: ${DB_PASSWORD:-cli_secret}
       DB_NAME: ${DB_NAME:-cli_login_db}

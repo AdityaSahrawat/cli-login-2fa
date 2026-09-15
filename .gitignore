@@ -1,0 +1,16 @@
+# Environment
+.env
+
+# Binaries
+/clilogin
+/bin
+/out
+
+# Data & Runtime artifacts
+/data/*
+!/data/.gitkeep
+
+# System & Editor
+.DS_Store
+.idea/
+.vscode/
