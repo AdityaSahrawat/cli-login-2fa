@@ -42,10 +42,22 @@ func NewShell(cfg *config.Config, authService auth.AuthService) (*Shell, error) 
 		return shell.session != nil
 	})
 
+	ghost := newGhostCompleter(
+		func() bool { return shell.session != nil },
+		func() bool {
+			if shell.rl == nil {
+				return true
+			}
+			return strings.HasSuffix(shell.rl.Config.Prompt, "> ")
+		},
+	)
+
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          "cli-login> ",
 		HistoryFile:     cfg.ReadlineHistoryFile,
 		AutoComplete:    completer,
+		Painter:         ghost,
+		Listener:        ghost,
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 	})
