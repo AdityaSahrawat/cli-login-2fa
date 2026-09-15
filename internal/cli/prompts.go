@@ -9,19 +9,26 @@ import (
 
 // Prompter provides helper methods to interactively read user input.
 type Prompter struct {
-	rl *readline.Instance
+	rl        *readline.Instance
+	getPrompt func() string
 }
 
 // NewPrompter creates a new Prompter wrapping an active readline instance.
-func NewPrompter(rl *readline.Instance) *Prompter {
-	return &Prompter{rl: rl}
+func NewPrompter(rl *readline.Instance, getPrompt func() string) *Prompter {
+	return &Prompter{
+		rl:        rl,
+		getPrompt: getPrompt,
+	}
 }
 
 // PromptLine displays a prompt and reads a trimmed line of text.
 func (p *Prompter) PromptLine(promptText string) (string, error) {
-	oldPrompt := p.rl.Config.Prompt
 	p.rl.SetPrompt(promptText)
-	defer p.rl.SetPrompt(oldPrompt)
+	defer func() {
+		if p.getPrompt != nil {
+			p.rl.SetPrompt(p.getPrompt())
+		}
+	}()
 
 	line, err := p.rl.Readline()
 	if err != nil {
@@ -32,6 +39,12 @@ func (p *Prompter) PromptLine(promptText string) (string, error) {
 
 // PromptPassword displays a prompt and reads a password without echoing characters.
 func (p *Prompter) PromptPassword(promptText string) (string, error) {
+	defer func() {
+		if p.getPrompt != nil {
+			p.rl.SetPrompt(p.getPrompt())
+		}
+	}()
+
 	bytes, err := p.rl.ReadPassword(promptText)
 	if err != nil {
 		return "", err

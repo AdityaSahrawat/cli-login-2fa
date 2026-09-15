@@ -159,6 +159,14 @@ func (h *CommandHandler) HandleEnable2FA(ctx context.Context, rawToken string) e
 }
 
 func (h *CommandHandler) HandleDisable2FA(ctx context.Context, rawToken string) error {
+	user, _, err := h.authService.GetCurrentUser(ctx, rawToken)
+	if err != nil {
+		return err
+	}
+	if !user.TOTPEnabled {
+		return auth.ErrTOTPNotEnabled
+	}
+
 	password, err := h.prompter.PromptPassword("Enter current password: ")
 	if err != nil {
 		return err

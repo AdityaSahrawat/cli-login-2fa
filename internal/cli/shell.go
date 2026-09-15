@@ -51,15 +51,17 @@ func NewShell(cfg *config.Config, authService auth.AuthService) (*Shell, error) 
 		return nil, fmt.Errorf("failed to initialize readline: %w", err)
 	}
 
-	prompter := NewPrompter(rl)
-	handler := NewCommandHandler(authService, prompter, rl.Stdout())
-
-	return &Shell{
+	shell := &Shell{
 		cfg:         cfg,
 		authService: authService,
 		rl:          rl,
-		handler:     handler,
-	}, nil
+	}
+
+	prompter := NewPrompter(rl, shell.activePrompt)
+	handler := NewCommandHandler(authService, prompter, rl.Stdout())
+	shell.handler = handler
+
+	return shell, nil
 }
 
 // Close closes the readline resources cleanly.
@@ -67,7 +69,15 @@ func (s *Shell) Close() error {
 	return s.rl.Close()
 }
 
+func (s *Shell) activePrompt() string {
+	if s.session != nil {
+		return fmt.Sprintf("cli-login(%s)> ", s.session.Username)
+	}
+	return "cli-login> "
+}
+
 func (s *Shell) updateCompleter() {
+	prompt := s.activePrompt()
 	if s.session != nil {
 		s.rl.Config.AutoComplete = readline.NewPrefixCompleter(
 			readline.PcItem("whoami"),
@@ -77,7 +87,6 @@ func (s *Shell) updateCompleter() {
 			readline.PcItem("help"),
 			readline.PcItem("exit"),
 		)
-		s.rl.SetPrompt(fmt.Sprintf("cli-login(%s)> ", s.session.Username))
 	} else {
 		s.rl.Config.AutoComplete = readline.NewPrefixCompleter(
 			readline.PcItem("register"),
@@ -85,8 +94,9 @@ func (s *Shell) updateCompleter() {
 			readline.PcItem("help"),
 			readline.PcItem("exit"),
 		)
-		s.rl.SetPrompt("cli-login> ")
 	}
+	s.rl.Config.Prompt = prompt
+	s.rl.SetPrompt(prompt)
 }
 
 // Run executes the command loop until exit or EOF.
@@ -96,6 +106,7 @@ func (s *Shell) Run(ctx context.Context) error {
 	fmt.Fprintln(s.rl.Stdout(), "Welcome to CLI Login System. Type 'help' to see available commands.")
 
 	for {
+		s.rl.SetPrompt(s.activePrompt())
 		line, err := s.rl.Readline()
 		if err != nil {
 			if errors.Is(err, readline.ErrInterrupt) {
