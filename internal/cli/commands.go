@@ -66,7 +66,7 @@ func (h *CommandHandler) HandleLogin(ctx context.Context) (*models.Authenticated
 	sess, err := h.authService.Login(ctx, username, password, "")
 	if err != nil {
 		if errors.Is(err, auth.ErrTOTPRequired) {
-			totpCode, err := h.prompter.PromptLine("TOTP code (if enabled): ")
+			totpCode, err := h.prompter.PromptLine("TOTP code: ")
 			if err != nil {
 				return nil, err
 			}
