@@ -33,12 +33,14 @@ func NewShell(cfg *config.Config, authService auth.AuthService) (*Shell, error) 
 		_ = os.MkdirAll(histDir, 0755)
 	}
 
-	completer := readline.NewPrefixCompleter(
-		readline.PcItem("register"),
-		readline.PcItem("login"),
-		readline.PcItem("help"),
-		readline.PcItem("exit"),
-	)
+	shell := &Shell{
+		cfg:         cfg,
+		authService: authService,
+	}
+
+	completer := newDynamicCompleter(func() bool {
+		return shell.session != nil
+	})
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          "cli-login> ",
@@ -50,12 +52,7 @@ func NewShell(cfg *config.Config, authService auth.AuthService) (*Shell, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize readline: %w", err)
 	}
-
-	shell := &Shell{
-		cfg:         cfg,
-		authService: authService,
-		rl:          rl,
-	}
+	shell.rl = rl
 
 	prompter := NewPrompter(rl, shell.activePrompt)
 	handler := NewCommandHandler(authService, prompter, rl.Stdout())
@@ -76,25 +73,42 @@ func (s *Shell) activePrompt() string {
 	return "cli-login> "
 }
 
-func (s *Shell) updateCompleter() {
-	prompt := s.activePrompt()
-	if s.session != nil {
-		s.rl.Config.AutoComplete = readline.NewPrefixCompleter(
+// dynamicCompleter implements readline.AutoCompleter by inspecting authentication status.
+type dynamicCompleter struct {
+	unauthCompleter *readline.PrefixCompleter
+	authCompleter   *readline.PrefixCompleter
+	isAuthenticated func() bool
+}
+
+func newDynamicCompleter(isAuthenticated func() bool) *dynamicCompleter {
+	return &dynamicCompleter{
+		unauthCompleter: readline.NewPrefixCompleter(
+			readline.PcItem("register"),
+			readline.PcItem("login"),
+			readline.PcItem("help"),
+			readline.PcItem("exit"),
+		),
+		authCompleter: readline.NewPrefixCompleter(
 			readline.PcItem("whoami"),
 			readline.PcItem("enable-2fa"),
 			readline.PcItem("disable-2fa"),
 			readline.PcItem("logout"),
 			readline.PcItem("help"),
 			readline.PcItem("exit"),
-		)
-	} else {
-		s.rl.Config.AutoComplete = readline.NewPrefixCompleter(
-			readline.PcItem("register"),
-			readline.PcItem("login"),
-			readline.PcItem("help"),
-			readline.PcItem("exit"),
-		)
+		),
+		isAuthenticated: isAuthenticated,
 	}
+}
+
+func (d *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, offset int) {
+	if d.isAuthenticated != nil && d.isAuthenticated() {
+		return d.authCompleter.Do(line, pos)
+	}
+	return d.unauthCompleter.Do(line, pos)
+}
+
+func (s *Shell) updateCompleter() {
+	prompt := s.activePrompt()
 	s.rl.Config.Prompt = prompt
 	s.rl.SetPrompt(prompt)
 }
